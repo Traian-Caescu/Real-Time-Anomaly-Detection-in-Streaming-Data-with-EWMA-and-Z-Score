@@ -2,232 +2,213 @@ import numpy as np
 import random
 from collections import deque
 import matplotlib.pyplot as plt
- 
-# Step 1: Simulate a dynamic data stream 
+import matplotlib.animation as animation
+
+# Step 1: Simulate a dynamic data stream
 def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, noise_scale=0.5):
     """
     Simulate a continuous data stream, incorporating seasonal variations, random noise,
-    and occasional anomalies (e.g., spikes, dips, shifts).
- 
-    Parameters:  
-    - size (int): The total number of data points to simulate.
-    - anomaly_prob (float): Probability that any given point in the stream will be an anomaly.
-    - anomaly_magnitude (float): Magnitude of anomalies (how large deviations are).
-    - noise_scale (float): Scale of the random noise applied to the data.
+    and occasional anomalies. The goal is to create a stream that mimics real-world
+    scenarios such as financial data or sensor readings.
 
-    Returns: 
-    - A NumPy array representing the simulated data stream.
-    
-    This function generates a stream that mimics the behavior of real-world data sources (e.g., financial data,
-    sensor readings). It includes a combination of deterministic patterns (seasonal variations, trends) and
-    non-deterministic elements (noise, random anomalies).
+    Parameters:
+    - size (int): Total number of data points in the stream.
+    - anomaly_prob (float): Probability of anomalies occurring in the stream.
+    - anomaly_magnitude (float): Size or strength of the anomalies.
+    - noise_scale (float): Degree of random noise added to simulate real-world imperfections.
+
+    Returns:
+    - data (array): Simulated stream of data points with anomalies.
+
+    This function generates data with both predictable (seasonal and trend-based) 
+    and unpredictable (random noise and anomalies) components.
     """
-    # Generate a time index for the data
-    time = np.arange(size)
-
-    # Generate two seasonal components:
-    # One short-term cycle (fast fluctuations) and one long-term cycle (slower, broader trends)
+    time = np.arange(size)  # Generate time points for the data stream
+    
+    # Seasonal component to simulate periodic fluctuations in the data
     seasonal_component = 5 * np.sin(2 * np.pi * time / 50) + 2 * np.sin(2 * np.pi * time / 150)
-
-    # Add random noise to simulate small fluctuations and variability in real-world data
+    
+    # Random noise to make the data less deterministic and more realistic
     noise = np.random.normal(0, noise_scale, size)
-
-    # Simulate a trend (data slowly increases or decreases over time)
+    
+    # Add a trend to simulate a gradual increase or decrease over time
     trend = 0.01 * time
-
-    # Combine all the components: baseline + seasonal patterns + noise + trend
+    
+    # Combine base value (10) with seasonal patterns, noise, and trend
     data = 10 + seasonal_component + noise + trend
 
-    # Introduce anomalies (spikes, dips, or shifts) at random points in the data
-    # Anomalies are important for testing how well the anomaly detection algorithm works
+    # Inject anomalies (e.g., sudden spikes, dips, or shifts in the data)
     anomalies_indices = np.random.choice(size, int(size * anomaly_prob), replace=False)
     anomaly_types = np.random.choice(['spike', 'dip', 'shift'], size=len(anomalies_indices))
-    
-    # Apply anomalies: A 'spike' increases value, a 'dip' decreases value, and a 'shift' modifies the trend over several points
+
+    # Apply the anomalies in the data stream
     for i, anomaly_type in zip(anomalies_indices, anomaly_types):
         if anomaly_type == 'spike':
-            data[i] += anomaly_magnitude
+            data[i] += anomaly_magnitude  # A sudden upward spike
         elif anomaly_type == 'dip':
-            data[i] -= anomaly_magnitude
+            data[i] -= anomaly_magnitude  # A sharp drop
         elif anomaly_type == 'shift':
-            # Apply a shift over several consecutive points
-            end_idx = min(i+5, size)
+            # A gradual shift over several data points
+            end_idx = min(i + 5, size)
             data[i:end_idx] += anomaly_magnitude / 2 if random.random() > 0.5 else -anomaly_magnitude / 2
 
     return data
 
-# Step 2: Calculate the Exponentially Weighted Moving Average (EWMA) and Z-score for anomaly detection
+# Step 2: Exponentially Weighted Moving Average (EWMA) and Z-score calculation
 def ewma_z_score(new_value, history, avg, std_dev, alpha=0.2):
     """
-    Use EWMA to smooth the data and Z-score to detect anomalies.
+    Calculate the EWMA for smoothing the data and the Z-score for anomaly detection.
 
     Parameters:
-    - new_value: The most recent data point to incorporate.
-    - history (deque): A buffer of previous values, used to compute statistics.
-    - avg (float): The average of the recent history.
-    - std_dev (float): The standard deviation of the recent history.
-    - alpha (float): The EWMA smoothing factor (controls how quickly it responds to new data).
+    - new_value: Latest data point in the stream.
+    - history (deque): Buffer of recent values to compute statistics (e.g., mean, std_dev).
+    - avg (float): Current average of values in history.
+    - std_dev (float): Current standard deviation of values in history.
+    - alpha (float): Smoothing factor for EWMA. Controls how fast it adapts to new values.
 
     Returns:
-    - ewma (float): The updated EWMA value for the current data point.
-    - z_score (float): The Z-score, measuring how much the current data point deviates from the average.
+    - ewma (float): Smoothed EWMA value for the current data point.
+    - z_score (float): Z-score indicating deviation of the current data point from the mean.
 
-    Explanation:
-    EWMA is used for smoothing the data, making it easier to spot long-term trends and filter out short-term noise.
-    Z-score measures how many standard deviations a data point is from the average, helping to flag outliers.
+    EWMA smooths out short-term fluctuations and highlights long-term trends. Z-score 
+    flags outliers by measuring how far a point deviates from the historical average.
     """
-    # Update the EWMA using the previous value and the new incoming data point
+    # Update EWMA based on the previous EWMA value and the new incoming value
     ewma = (1 - alpha) * history[-1] + alpha * new_value if history else new_value
-
-    # Calculate Z-score: deviation from the average, normalized by the standard deviation
+    
+    # Calculate Z-score: how far the current value is from the mean, normalized by the std_dev
     z_score = (new_value - avg) / std_dev if std_dev != 0 else 0
+
     return ewma, z_score
 
-# Step 3: Detect anomalies in the data chunk using EWMA and Z-score
+# Step 3: Detect anomalies in a chunk of data using EWMA and Z-score
 def detect_anomalies(data_chunk, adaptive_alpha=False):
     """
-    Process a chunk of data and detect anomalies using EWMA and Z-score.
+    Detect anomalies in a chunk of data based on the EWMA and Z-score methods.
 
     Parameters:
-    - data_chunk (array): The segment of data to process.
-    - adaptive_alpha (bool): Whether to dynamically adjust the EWMA smoothing factor based on data volatility.
+    - data_chunk (list/array): Segment of data to be analyzed.
+    - adaptive_alpha (bool): Whether to adjust the EWMA smoothing factor based on data volatility.
 
     Returns:
-    - ewma_values (list): List of EWMA values for each data point in the chunk.
-    - anomalies (list of tuples): Detected anomalies as (index, value) pairs.
-    
-    The function analyzes one chunk of the data at a time (for real-time streaming use cases). It applies EWMA to smooth
-    the data and uses Z-score to detect anomalies.
-    """
-    ewma_values = []
-    anomalies = []
-    history = deque(maxlen=50)  # Rolling window of past data points for computing EWMA, mean, and std dev
+    - ewma_values (list): List of EWMA values for each data point.
+    - anomalies (list): List of detected anomalies as (index, value) pairs.
 
-    # Iterate over each data point in the chunk
+    This function processes one chunk of data at a time (mimicking real-time streaming)
+    and identifies outliers based on how much they deviate from the recent trend.
+    """
+    ewma_values = []  # Store EWMA values
+    anomalies = []    # Store detected anomalies
+    history = deque(maxlen=50)  # Rolling window of past values
+
+    # Iterate through each data point in the chunk
     for value in data_chunk:
-        # Calculate average and standard deviation based on history
         if len(history) > 1:
-            avg, std_dev = np.mean(history), np.std(history)
+            avg, std_dev = np.mean(history), np.std(history)  # Compute average and standard deviation
         else:
-            avg, std_dev = value, 1  # Initialize avg and std_dev during the first iteration
-        
-        # Dynamically adjust alpha if adaptive_alpha is enabled
+            avg, std_dev = value, 1  # Initialize in the first iteration
+
+        # If adaptive_alpha is True, adjust alpha dynamically based on data volatility
         if adaptive_alpha:
             volatility = np.std(history) if len(history) > 1 else 0
-            alpha = min(0.5, max(0.1, volatility / 10))  # High volatility -> faster adaptation
+            alpha = min(0.5, max(0.1, volatility / 10))  # Higher volatility -> faster adaptation
         else:
             alpha = 0.2  # Default alpha (slow adaptation to new data)
 
+        # Calculate EWMA and Z-score for the current value
         ewma, z_score = ewma_z_score(value, history, avg, std_dev, alpha)
         ewma_values.append(ewma)
-        
-        # Detect anomalies where the Z-score is above the threshold (3 standard deviations from the mean)
+
+        # Flag anomalies if the Z-score exceeds 3 (more than 3 standard deviations away from the mean)
         if abs(z_score) > 3:
             anomalies.append((len(ewma_values) - 1, value))
 
-        # Add the current value to history for future calculations
+        # Add the current value to the history buffer for future calculations
         history.append(value)
 
     return ewma_values, anomalies
 
-# Step 4: Visualize the data, EWMA, and detected anomalies
-def visualize_stream(data_chunk, ewma_values=None, anomalies=None):
+# Step 4: Real-time visualization using Matplotlib animation
+def real_time_visualization(stream, ewma_values=None, anomalies=None):
     """
-    Generate a plot showing the original data, the EWMA smoothed data, and any detected anomalies.
+    Visualize the data stream in real-time along with detected anomalies and the EWMA trend.
 
     Parameters:
-    - data_chunk (array): The data to visualize.
-    - ewma_values (list): The calculated EWMA values for the data.
-    - anomalies (list of tuples): The detected anomalies (index, value) pairs.
-    
-    This function uses matplotlib to plot the data, and highlights the detected anomalies (outliers) in red.
+    - stream (list/array): The full data stream.
+    - ewma_values (list): Smoothed EWMA values.
+    - anomalies (list): List of detected anomalies as (index, value) pairs.
+
+    This function uses Matplotlib's animation capabilities to simulate real-time 
+    visualization, where the data stream and anomalies are plotted incrementally.
     """
-    plt.figure(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_title('Real-time Data Stream with Anomalies')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Value')
+    ax.grid(True)
 
-    # Plot the original data
-    plt.plot(data_chunk, label="Data Stream", color="blue")
+    # Prepare plot elements for the data stream, EWMA, and anomalies
+    line_data, = ax.plot([], [], lw=2, label="Data Stream")
+    line_ewma, = ax.plot([], [], lw=2, linestyle="--", label="EWMA", color="green")
+    anomaly_scatter = ax.scatter([], [], color="red", zorder=5, label="Anomalies")
 
-    # Plot the EWMA (smoothed data) if available
-    if ewma_values is not None:
-        plt.plot(ewma_values, label="EWMA", color="green", linestyle="--")
+    ax.legend()
 
-    # Highlight anomalies as red dots
-    if anomalies:
-        anomaly_indices, anomaly_values = zip(*anomalies) if anomalies else ([], [])
-        plt.scatter(anomaly_indices, anomaly_values, color="red", label="Anomalies", zorder=5)
+    # Function to update the plot as new data comes in
+    def update(i):
+        ax.set_xlim(0, len(stream))  # Set the x-axis range based on the data size
+        ax.set_ylim(min(stream) - 5, max(stream) + 5)  # Adjust y-axis range dynamically
 
-    plt.title("Data Stream with Detected Anomalies")
-    plt.xlabel("Time (Ticks)")
-    plt.ylabel("Value")
-    plt.legend()
-    plt.grid(True)
+        # Plot the data stream and EWMA up to the current point
+        x_data = np.arange(len(stream[:i]))
+        line_data.set_data(x_data, stream[:i])
+
+        if ewma_values:
+            line_ewma.set_data(x_data, ewma_values[:i])
+
+        # Highlight detected anomalies
+        if anomalies:
+            anomaly_indices, anomaly_values = zip(*anomalies) if anomalies else ([], [])
+            anomaly_scatter.set_offsets(np.c_[anomaly_indices[:i], anomaly_values[:i]])
+
+        return line_data, line_ewma, anomaly_scatter
+
+    # Animate the visualization using Matplotlib's FuncAnimation
+    ani = animation.FuncAnimation(fig, update, frames=np.arange(len(stream)), interval=200)
     plt.show()
 
-# Step 5: Simulate continuous data stream chunks
+# Step 5: Simulate continuous real-time data stream in chunks
 def continuous_data_stream(size=300, chunk_size=50):
     """
-    Simulate continuous real-time data streaming by yielding data in chunks.
+    Generate a continuous data stream, yielding chunks of data for real-time processing.
 
     Parameters:
-    - size (int): The total number of data points to generate.
-    - chunk_size (int): The number of data points to process at once (mimicking real-time chunks).
+    - size (int): Total size of the data stream.
+    - chunk_size (int): Number of data points to process in each chunk.
 
     Yields:
-    - Chunks of the data stream.
+    - Chunks of data, simulating real-time streaming.
     """
     full_stream = generate_dynamic_data_stream(size)
     for i in range(0, size, chunk_size):
         yield full_stream[i:i + chunk_size]
 
-# Step 6: Process each data chunk in real time, detecting and displaying anomalies
+# Step 6: Process data stream chunk-by-chunk in real-time
 def process_data_in_real_time():
     """
-    Continuously process and visualize the data stream, chunk by chunk, detecting anomalies in real-time.
-
-    This function is designed to simulate real-time data processing, where chunks of data are processed sequentially.
-    After each chunk is processed, the detected anomalies and the EWMA smoothed data are visualized.
+    Main function to process the simulated data stream in real-time. It handles
+    detection of anomalies and visualizes each chunk of the data as it arrives.
     """
-    stream = continuous_data_stream()
+    stream = continuous_data_stream()  # Simulate the continuous data stream
 
-    # Initialize a counter for the total number of detected anomalies
-    total_anomalies = 0
+    total_anomalies = 0  # Track the total number of anomalies detected
 
-    # Process each chunk of data in sequence
+    # Process each data chunk one by one
     for chunk_number, data_chunk in enumerate(stream, start=1):
-        print(f"Processing chunk {chunk_number}...\n")
-        ewma_values, anomalies = detect_anomalies(data_chunk)
+        ewma_values, anomalies = detect_anomalies(data_chunk)  # Detect anomalies in the current chunk
         total_anomalies += len(anomalies)
+        print(f"Chunk {chunk_number}: {len(anomalies)} anomalies detected.")  # Log anomaly count for each chunk
+        real_time_visualization(data_chunk, ewma_values, anomalies)  # Visualize the results in real-time
 
-        print(f"Chunk {chunk_number} processed: {len(anomalies)} anomalies detected.")
-        print(f"Total anomalies detected so far: {total_anomalies}\n")
-
-        visualize_stream(data_chunk, ewma_values, anomalies)
-
-        # Pause to allow user to review the current chunk's results before continuing to the next one
-        input("Press Enter to continue to the next chunk...")
-
-# Step 7: Validate the data to ensure no NaN or infinite values exist
-def validate_data(data_stream):
-    """
-    Validate the data stream to ensure it contains no invalid values (NaNs or infinite values).
-
-    Parameters:
-    - data_stream: The NumPy array of data to validate.
-
-    Raises:
-    - ValueError: If any NaN or infinite values are found in the data.
-    
-    This function ensures the data stream is valid and ready for processing, avoiding errors during anomaly detection.
-    """
-    if not isinstance(data_stream, np.ndarray):
-        raise ValueError("Data stream must be a numpy array.")
-    if np.isnan(data_stream).any() or np.isinf(data_stream).any():
-        raise ValueError("Data stream contains NaN or infinite values.")
-
-# Main script execution
 if __name__ == "__main__":
-    try:
-        # Process and visualize the data stream in real-time
-        process_data_in_real_time()
-    except Exception as e:
-        print(f"Error occurred: {e}")
+    process_data_in_real_time()  # Start processing the data stream in real-time
