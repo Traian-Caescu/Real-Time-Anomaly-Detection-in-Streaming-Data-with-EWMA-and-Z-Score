@@ -15,7 +15,7 @@ def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, 
     - anomaly_magnitude (float): Magnitude of anomalies (how large deviations are).
     - noise_scale (float): Scale of the random noise applied to the data.
 
-    Returns:
+    Returns: 
     - A NumPy array representing the simulated data stream.
     
     This function generates a stream that mimics the behavior of real-world data sources (e.g., financial data,
