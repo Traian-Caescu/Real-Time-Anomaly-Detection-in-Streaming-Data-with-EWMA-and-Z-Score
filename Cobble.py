@@ -3,7 +3,7 @@ import random
 from collections import deque
 import matplotlib.pyplot as plt
  
-# Step 1: Simulate a dynamic data stream
+# Step 1: Simulate a dynamic data stream 
 def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, noise_scale=0.5):
     """
     Simulate a continuous data stream, incorporating seasonal variations, random noise,
