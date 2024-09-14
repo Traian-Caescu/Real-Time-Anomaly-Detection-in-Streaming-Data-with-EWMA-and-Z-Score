@@ -9,7 +9,7 @@ def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, 
     Simulate a continuous data stream, incorporating seasonal variations, random noise,
     and occasional anomalies (e.g., spikes, dips, shifts).
  
-    Parameters:
+    Parameters: 
     - size (int): The total number of data points to simulate.
     - anomaly_prob (float): Probability that any given point in the stream will be an anomaly.
     - anomaly_magnitude (float): Magnitude of anomalies (how large deviations are).
