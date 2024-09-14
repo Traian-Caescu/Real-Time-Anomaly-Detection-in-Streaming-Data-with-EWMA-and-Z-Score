@@ -94,13 +94,14 @@ def ewma_z_score(new_value, history, avg, std_dev, alpha=0.2):
     return ewma, z_score
 
 # Step 3: Detect anomalies in a chunk of data using EWMA and Z-score
-def detect_anomalies(data_chunk, adaptive_alpha=False):
+def detect_anomalies(data_chunk, adaptive_alpha=False, z_threshold=3):
     """
     Detect anomalies in a chunk of data based on the EWMA and Z-score methods.
 
     Parameters:
     - data_chunk (list/array): Segment of data to be analyzed.
     - adaptive_alpha (bool): Whether to adjust the EWMA smoothing factor based on data volatility.
+    - z_threshold (float): Threshold for Z-score to flag anomalies. Default is 3.
 
     Returns:
     - ewma_values (list): List of EWMA values for each data point.
@@ -134,8 +135,8 @@ def detect_anomalies(data_chunk, adaptive_alpha=False):
             ewma, z_score = ewma_z_score(value, history, avg, std_dev, alpha)
             ewma_values.append(ewma)
 
-            # Flag anomalies if the Z-score exceeds 3 (more than 3 standard deviations away from the mean)
-            if abs(z_score) > 3:
+            # Flag anomalies if the Z-score exceeds the threshold (default 3)
+            if abs(z_score) > z_threshold:
                 anomalies.append((len(ewma_values) - 1, value))
 
             history.append(value)
