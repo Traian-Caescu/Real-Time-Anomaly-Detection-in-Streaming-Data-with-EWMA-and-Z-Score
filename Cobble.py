@@ -2,7 +2,7 @@ import numpy as np
 import random
 from collections import deque
 import matplotlib.pyplot as plt 
-import matplotlib.animation as animation
+import matplotlib.animation as animation 
 
 # Step 1: Simulate a dynamic data stream
 def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, noise_scale=0.5): 
