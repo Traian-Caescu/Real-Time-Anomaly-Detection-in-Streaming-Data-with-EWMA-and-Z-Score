@@ -21,7 +21,7 @@ def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, 
     - data (array): Simulated stream of data points with anomalies.
 
     This function generates data with both predictable (seasonal and trend-based) 
-    and unpredictable (random noise and anomalies) components.
+    and unpredictable (random noise and anomalies) components. 
     
     Note: Seasonal components help mimic periodic fluctuations while anomalies 
     represent unusual deviations. This data can simulate various domains like 
