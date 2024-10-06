@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from collections import deque
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt  
 import matplotlib.animation as animation  
 
 # Step 1: Simulate a dynamic data stream
