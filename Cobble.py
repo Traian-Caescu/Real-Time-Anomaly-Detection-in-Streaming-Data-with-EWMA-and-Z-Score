@@ -12,7 +12,7 @@ def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, 
     scenarios such as financial data or sensor readings.
 
     Parameters:
-    - size (int): Total number of data points in the stream.
+    - size (int): Total number of data points in the stream. 
     - anomaly_prob (float): Probability of anomalies occurring in the stream.
     - anomaly_magnitude (float): Size or strength of the anomalies.
     - noise_scale (float): Degree of random noise added to simulate real-world imperfections.
