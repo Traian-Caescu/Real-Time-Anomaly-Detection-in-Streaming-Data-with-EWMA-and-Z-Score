@@ -11,7 +11,7 @@ def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, 
     and occasional anomalies. The goal is to create a stream that mimics real-world 
     scenarios such as financial data or sensor readings.
 
-    Parameters:
+    Parameters: 
     - size (int): Total number of data points in the stream. 
     - anomaly_prob (float): Probability of anomalies occurring in the stream.
     - anomaly_magnitude (float): Size or strength of the anomalies.
