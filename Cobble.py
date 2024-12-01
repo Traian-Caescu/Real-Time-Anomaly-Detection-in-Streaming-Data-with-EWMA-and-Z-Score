@@ -8,7 +8,7 @@ import matplotlib.animation as animation
 def generate_dynamic_data_stream(size, anomaly_prob=0.01, anomaly_magnitude=10, noise_scale=0.5): 
     """
     Simulate a continuous data stream, incorporating seasonal variations, random noise, 
-    and occasional anomalies. The goal is to create a stream that mimics real-world
+    and occasional anomalies. The goal is to create a stream that mimics real-world 
     scenarios such as financial data or sensor readings.
 
     Parameters:
